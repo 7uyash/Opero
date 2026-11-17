@@ -72,7 +72,7 @@ export default async function AutomationPage() {
       </header>
 
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <CardHeader className="flex flex-col-reverse items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
           <div>
             <CardTitle>Automatic messages</CardTitle>
             <CardDescription>{s.text}</CardDescription>

@@ -89,7 +89,7 @@ export function SmtpCard({ integration, defaults, myEmail }: { integration: Inte
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
+      <CardHeader className="flex flex-col-reverse items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
         <div className="flex gap-3">
           <Mail className="mt-1 size-5 text-muted-foreground" aria-hidden />
           <div>

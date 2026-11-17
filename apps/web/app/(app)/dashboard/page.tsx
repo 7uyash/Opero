@@ -97,7 +97,7 @@ export default async function DashboardPage() {
                 <CardDescription>All-time numbers for each active team member.</CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="rtable rtable-kv w-full text-sm">
                   <thead className="text-left text-muted-foreground">
                     <tr className="border-b border-border">
                       <th className="py-2 pr-4 font-medium">Member</th>
@@ -121,12 +121,12 @@ export default async function DashboardPage() {
                             {!m.isAvailable && " · away"}
                           </span>
                         </td>
-                        <td className="py-2 pr-4 text-right">{m.assigned}</td>
-                        <td className="py-2 pr-4 text-right">{m.open}</td>
-                        <td className={`py-2 pr-4 text-right ${m.awaitingFirstContact ? "text-warning" : ""}`}>{m.awaitingFirstContact}</td>
-                        <td className={`py-2 pr-4 text-right ${m.overdue ? "font-medium text-destructive" : ""}`}>{m.overdue}</td>
-                        <td className="py-2 pr-4 text-right">{m.converted}</td>
-                        <td className="py-2 text-right">{formatPercent(m.conversionRate)}</td>
+                        <td className="py-2 pr-4 text-right" data-label="Assigned">{m.assigned}</td>
+                        <td className="py-2 pr-4 text-right" data-label="Open">{m.open}</td>
+                        <td className={`py-2 pr-4 text-right ${m.awaitingFirstContact ? "text-warning" : ""}`} data-label="Not yet contacted">{m.awaitingFirstContact}</td>
+                        <td className={`py-2 pr-4 text-right ${m.overdue ? "font-medium text-destructive" : ""}`} data-label="Overdue">{m.overdue}</td>
+                        <td className="py-2 pr-4 text-right" data-label="Converted">{m.converted}</td>
+                        <td className="py-2 text-right" data-label="Conversion">{formatPercent(m.conversionRate)}</td>
                       </tr>
                     ))}
                   </tbody>

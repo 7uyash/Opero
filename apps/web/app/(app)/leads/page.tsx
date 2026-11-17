@@ -46,10 +46,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Leads</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             {can(ctx, "leads:view_all") ? "Every inquiry your business has received." : "Leads assigned to you."}
           </p>
         </div>
@@ -57,7 +57,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           href="/leads/new"
           className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
         >
-          <Plus className="size-4" aria-hidden /> Add lead
+          <Plus className="size-4" aria-hidden /> <span>Add<span className="hidden sm:inline"> lead</span></span>
         </Link>
       </header>
 
@@ -78,7 +78,40 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one tappable card per lead. */}
+          <ul className="divide-y divide-border md:hidden">
+            {items.map((l) => {
+              const overdue = l.nextFollowUpAt && new Date(l.nextFollowUpAt) < new Date();
+              return (
+                <li key={l.id}>
+                  <Link href={`/leads/${l.id}`} className="block px-4 py-3 active:bg-muted">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium text-primary">{l.name}</span>
+                      <StatusBadge status={l.status} />
+                    </div>
+                    {l.subject && <p className="truncate text-sm text-muted-foreground">{l.subject}</p>}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {SOURCE_LABELS[l.source]} · {l.assignedTo?.name ?? <span className="text-warning">Unassigned</span>}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                      {l.nextFollowUpAt ? (
+                        <span className={overdue ? "font-medium text-destructive" : "text-muted-foreground"}>
+                          {overdue ? "Overdue: " : "Follow up "}
+                          {formatDateTime(l.nextFollowUpAt, tz)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Added {formatDate(l.createdAt, tz)}</span>
+                      )}
+                      <PriorityBadge priority={l.priority} />
+                      {l.possibleDuplicate && <Badge tone="warning">Possible duplicate</Badge>}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="bg-muted text-left text-muted-foreground">
                 <tr>
@@ -140,6 +173,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
 

@@ -34,7 +34,7 @@ export function IntegrationShell({
   const s = STATUS[status];
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
+      <CardHeader className="flex flex-col-reverse items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
         <div className="flex gap-3">
           <span className="mt-1 text-muted-foreground">{icon}</span>
           <div>
@@ -42,7 +42,7 @@ export function IntegrationShell({
             <CardDescription>{description}</CardDescription>
           </div>
         </div>
-        <Badge tone={s.tone}>{statusLabel ?? s.label}</Badge>
+        <Badge tone={s.tone} className="shrink-0">{statusLabel ?? s.label}</Badge>
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>

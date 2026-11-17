@@ -86,7 +86,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         {items.length === 0 ? (
           <p className="p-10 text-center text-sm text-muted-foreground">Nothing here yet. Activity appears as leads arrive and follow-ups run.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="rtable rtable-pad w-full text-sm">
             <thead className="bg-muted text-left text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 font-medium">What happened</th>
@@ -109,7 +109,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                       {d && <div className={cn("max-w-md", e.status === "FAILED" ? "text-destructive" : "text-muted-foreground")}>{d}</div>}
                       {e.attempt > 1 && <div className="text-xs text-muted-foreground">Attempt {e.attempt}</div>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Lead">
                       {e.lead ? (
                         <Link href={`/leads/${e.lead.id}`} className="text-primary hover:underline">
                           {e.lead.name}
@@ -118,10 +118,10 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
                         "—"
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 max-md:inline-block max-md:w-auto max-md:pr-3">
                       <Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{formatDateTime(e.createdAt, org.timezone)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground max-md:inline-block max-md:w-auto">{formatDateTime(e.createdAt, org.timezone)}</td>
                     <td className="px-4 py-3 text-right">
                       {canRetry && <RetryButton executionId={e.id} needsConfirm={e.message?.failureKind === "delivery_unknown"} />}
                       {e.status === "FAILED" && e.message?.status && e.message.status !== "FAILED" && (

@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { getOrganization, requireAuth } from "@/lib/session";
 import { LeadActions } from "./lead-actions";
+import { QuickContact } from "./quick-contact";
 import { LeadProfile } from "./lead-profile";
 import { Timeline } from "./timeline";
 import { ActivityComposer } from "./activity-composer";
@@ -63,14 +64,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const closed = lead.status === "CONVERTED" || lead.status === "LOST";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
       <nav className="text-sm">
         <Link href="/leads" className="text-muted-foreground hover:text-foreground">
           ← All leads
         </Link>
       </nav>
 
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3 md:gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{lead.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -82,6 +83,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             {lead.assignedMember ? <span>· {lead.assignedMember.user.name}</span> : <Badge tone="warning">Unassigned</Badge>}
           </div>
         </div>
+        <QuickContact phone={lead.phoneE164} email={lead.email} />
       </header>
 
       {lead.duplicateOf && (
@@ -94,8 +96,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         </div>
       )}
 
+      {/* Phones: one column ordered by what you need first (actions, follow-ups, details, history).
+          Desktop: details and history on the left, actions on the right. */}
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div className="space-y-6">
+        <div className="contents lg:block lg:space-y-6">
+          <div className="order-3 lg:order-none">
           <LeadProfile
             lead={{
               id: lead.id,
@@ -109,7 +114,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             }}
             canEdit={can(ctx, "leads:update")}
           />
+          </div>
 
+          <div className="order-5 lg:order-none">
           <MessagesCard
             leadId={lead.id}
             timeZone={tz}
@@ -131,8 +138,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               createdAt: m.createdAt.toISOString(),
             }))}
           />
+          </div>
 
-          <Card>
+          <Card className="order-4 lg:order-none">
             <CardHeader>
               <CardTitle>Activity</CardTitle>
             </CardHeader>
@@ -143,7 +151,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </Card>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="contents lg:block lg:space-y-6">
+          <div className="order-1 lg:order-none">
           <LeadActions
             leadId={lead.id}
             status={lead.status}
@@ -152,6 +161,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             canAssign={can(ctx, "leads:assign")}
             members={members.map((m) => ({ id: m.id, name: m.name, isAvailable: m.isAvailable }))}
           />
+          </div>
+          <div className="order-2 lg:order-none">
           <FollowUpsCard
             leadId={lead.id}
             timeZone={tz}
@@ -167,7 +178,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               completedBy: t.completedBy?.user.name ?? null,
             }))}
           />
-          <Card>
+          </div>
+          <Card className="order-6 lg:order-none">
             <CardHeader>
               <CardTitle className="text-base">Key dates</CardTitle>
             </CardHeader>
@@ -198,7 +210,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
           {lead.assignments.length > 0 && (
-            <Card>
+            <Card className="order-7 lg:order-none">
               <CardHeader>
                 <CardTitle className="text-base">Assignment history</CardTitle>
               </CardHeader>

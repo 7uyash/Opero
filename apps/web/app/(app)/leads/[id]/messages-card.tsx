@@ -85,7 +85,7 @@ export function MessagesCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>Messages</CardTitle>
         <div className="flex flex-wrap gap-2 text-xs">
           {(Object.keys(consents) as MessageChannel[]).map((c) => (
@@ -98,7 +98,7 @@ export function MessagesCard({
                 if (optedOut && !confirm(`Stop all ${CHANNEL_LABELS[c].toLowerCase()} messages to this customer?`)) return;
                 if (await action.submit(`/api/leads/${leadId}/consent`, { body: { channel: c, optedOut } })) router.refresh();
               }}
-              className="rounded-full border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-60"
+              className="rounded-full border border-border px-2.5 py-1 hover:bg-muted disabled:opacity-60"
               title="Click to change"
             >
               {CHANNEL_LABELS[c]}: {consents[c] === "OPTED_OUT" ? "opted out" : consents[c] === "OPTED_IN" ? "opted in" : "no preference"}

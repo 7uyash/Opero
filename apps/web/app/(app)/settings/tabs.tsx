@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export function SettingsTabs({ tabs }: { tabs: { href: string; label: string }[] }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Settings" className="flex gap-1 overflow-x-auto border-b border-border">
+    <nav aria-label="Settings" className="scrollbar-none -mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 md:mx-0 md:px-0">
       {tabs.map((t) => {
         const active = pathname.startsWith(t.href);
         return (

@@ -98,3 +98,14 @@ In **Team**, managers can mark someone as not receiving leads or away until a da
 deactivate people who leave. A deactivated person's open leads are shared among the rest of the
 team. Each person chooses their own notifications (new lead, follow-up due, customer replied, …)
 under **Settings → Notifications**.
+
+## On your phone
+
+The app works in any phone browser; there is nothing to install. Tip: use **Add to Home Screen**
+(Safari's Share menu, or Chrome's ⋮ menu) to open it like an app.
+
+- The tab bar at the bottom has **Home, Leads, Follow-ups and Alerts**; everything else
+  (Automation, Activity, Integrations, Team, Settings, switching business, sign out) is under **More**.
+- On a lead, **Call**, **WhatsApp** and **Email** open your phone's dialer, WhatsApp or mail app
+  directly. Afterwards, tap **I contacted them** so the next reminders are re-timed.
+- In **Leads**, tap **Filters** for status, source, assignee, dates and sorting.

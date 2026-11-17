@@ -122,7 +122,7 @@ export function TeamManager({
           {rowError && <Alert tone="error">{rowError}</Alert>}
           {notice && <Alert tone="success">{notice}</Alert>}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rtable rtable-kv w-full text-sm">
               <thead className="text-left text-muted-foreground">
                 <tr className="border-b border-border">
                   <th className="py-2 pr-4 font-medium">Name</th>
@@ -154,7 +154,7 @@ export function TeamManager({
                           </Badge>
                         )}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4" data-label="Role">
                         {editable && m.status === "ACTIVE" ? (
                           <Select
                             aria-label={`Role for ${m.name}`}
@@ -173,7 +173,7 @@ export function TeamManager({
                           ROLE_LABELS[m.role]
                         )}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4" data-label="Receives leads">
                         <YesNo
                           value={m.receivesLeads}
                           editable={assignEditable}
@@ -182,7 +182,7 @@ export function TeamManager({
                           onChange={(v) => patch(m.id, { receivesLeads: v })}
                         />
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4" data-label="Available">
                         <YesNo
                           value={m.isAvailable}
                           editable={assignEditable}
@@ -196,7 +196,7 @@ export function TeamManager({
                           </div>
                         )}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4" data-label="Fallback manager">
                         {MANAGER_ROLES.includes(m.role) ? (
                           <YesNo
                             value={m.isFallbackManager}
@@ -209,7 +209,7 @@ export function TeamManager({
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="space-x-2 py-3 text-right whitespace-nowrap">
+                      <td className="space-x-2 py-3 text-right whitespace-nowrap max-md:pt-2">
                         {canManage && m.status === "ACTIVE" && (editable || m.id === me.memberId) && (
                           <Button size="sm" variant="ghost" disabled={disabled} onClick={() => shareLeads(m)}>
                             Share open leads
