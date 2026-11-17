@@ -1,0 +1,707 @@
+// Lead & Follow-up Manager — database schema.
+// Every business table carries organizationId (see docs/DECISIONS.md ADR-004).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MANAGER
+  SALESPERSON
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum LeadStatus {
+  NEW
+  ASSIGNED
+  CONTACTED
+  WAITING_FOR_CUSTOMER
+  FOLLOW_UP_DUE
+  QUALIFIED
+  CONVERTED
+  LOST
+  ON_HOLD
+}
+
+enum LeadPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SourceType {
+  WEBSITE
+  EMAIL
+  WHATSAPP
+  META
+  CRM
+  MANUAL
+}
+
+enum IntegrationProvider {
+  WEBSITE_FORM
+  SMTP
+  GMAIL
+  WHATSAPP_CLOUD
+  META_LEAD_ADS
+  HUBSPOT
+}
+
+enum IntegrationStatus {
+  NOT_CONNECTED
+  PENDING
+  CONNECTED
+  ERROR
+  DISCONNECTED
+}
+
+enum AssignmentMethod {
+  ROUND_ROBIN
+  MANUAL
+  FALLBACK
+  UNASSIGNED
+}
+
+enum ActorType {
+  USER
+  SYSTEM
+  CUSTOMER
+}
+
+enum ActivityType {
+  LEAD_CREATED
+  LEAD_UPDATED
+  DUPLICATE_MERGED
+  ASSIGNED
+  REASSIGNED
+  UNASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  MESSAGE_QUEUED
+  MESSAGE_SENT
+  MESSAGE_DELIVERED
+  MESSAGE_FAILED
+  CUSTOMER_REPLIED
+  EMPLOYEE_CONTACTED
+  FOLLOW_UP_SCHEDULED
+  FOLLOW_UP_COMPLETED
+  FOLLOW_UP_SKIPPED
+  FOLLOW_UPS_PAUSED
+  FOLLOW_UPS_STOPPED
+  OPTED_OUT
+  CONVERTED
+  LOST
+}
+
+enum Channel {
+  EMAIL
+  WHATSAPP
+  SMS
+  PHONE
+  OTHER
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+  RECEIVED
+}
+
+enum TemplateApproval {
+  DRAFT
+  APPROVED
+}
+
+enum FollowUpKind {
+  AUTO_MESSAGE
+  EMPLOYEE_REMINDER
+}
+
+enum FollowUpStatus {
+  SCHEDULED
+  DUE
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  CANCELLED
+  FAILED
+  PAUSED
+}
+
+enum AutomationStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum ExecutionStatus {
+  SUCCESS
+  FAILED
+  RETRYING
+  SKIPPED
+}
+
+enum ConsentStatus {
+  OPTED_IN
+  OPTED_OUT
+}
+
+// ───────────────────────── Identity & tenancy ─────────────────────────
+
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  email              String
+  businessType       String?
+  website            String?
+  timezone           String   @default("UTC")
+  /// ISO 3166-1 alpha-2 used as default region when parsing phone numbers.
+  defaultCountry     String   @default("IN")
+  /// { mon: [{ start: "09:00", end: "18:00" }], ... }
+  workingHours       Json     @default("{}")
+  /// ["2026-12-25", ...] in the organization's timezone.
+  holidays           Json     @default("[]")
+  communicationPrefs Json     @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  members            OrganizationMember[]
+  invitations        Invitation[]
+  integrations       Integration[]
+  leadSources        LeadSource[]
+  leads              Lead[]
+  assignments        Assignment[]
+  assignmentCursor   AssignmentCursor?
+  activities         LeadActivity[]
+  conversations      Conversation[]
+  messages           Message[]
+  templates          MessageTemplate[]
+  followUpRules      FollowUpRule[]
+  followUpTasks      FollowUpTask[]
+  automationConfigs  AutomationConfig[]
+  executions         AutomationExecution[]
+  inboundEvents      InboundEvent[]
+  consents           Consent[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  sessions           Session[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  memberships OrganizationMember[]
+  sessions    Session[]
+  auditLogs   AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id                   String        @id @default(cuid())
+  /// SHA-256 (HMAC with SESSION_SECRET) of the opaque cookie token.
+  tokenHash            String        @unique
+  userId               String
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+  activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  ip                   String?
+  userAgent            String?
+  expiresAt            DateTime
+  createdAt            DateTime      @default(now())
+  lastSeenAt           DateTime      @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model OrganizationMember {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role              MemberRole
+  status            MemberStatus @default(ACTIVE)
+  /// Whether this member takes part in automatic lead assignment.
+  receivesLeads     Boolean      @default(true)
+  isAvailable       Boolean      @default(true)
+  unavailableUntil  DateTime?
+  isFallbackManager Boolean      @default(false)
+  notificationPrefs Json         @default("{}")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  assignedLeads       Lead[]          @relation("LeadAssignee")
+  assignments         Assignment[]    @relation("AssignmentMember")
+  previousAssignments Assignment[]    @relation("AssignmentPreviousMember")
+  completedFollowUps  FollowUpTask[]  @relation("FollowUpCompletedBy")
+  notifications       Notification[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+  @@map("organization_members")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  name           String?
+  role           MemberRole
+  tokenHash      String       @unique
+  invitedById    String?
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("invitations")
+}
+
+// ─────────────────────────── Integrations ───────────────────────────
+
+model Integration {
+  id                   String              @id @default(cuid())
+  organizationId       String
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider             IntegrationProvider
+  name                 String
+  status               IntegrationStatus   @default(NOT_CONNECTED)
+  /// AES-256-GCM encrypted JSON (ADR-009). Never returned by the API.
+  encryptedCredentials String?
+  config               Json                @default("{}")
+  /// Public, unguessable id used in webhook URLs.
+  webhookKey           String?             @unique
+  /// Encrypted HMAC secret for webhook signatures.
+  encryptedWebhookSecret String?
+  lastTestedAt         DateTime?
+  lastError            String?
+  connectedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  leadSources   LeadSource[]
+  inboundEvents InboundEvent[]
+
+  @@index([organizationId, provider])
+  @@map("integrations")
+}
+
+model LeadSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           SourceType
+  label          String
+  integrationId  String?
+  integration    Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  leads Lead[]
+
+  @@unique([organizationId, type, label])
+  @@map("lead_sources")
+}
+
+model InboundEvent {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrationId   String
+  integration     Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  externalEventId String
+  eventType       String
+  payloadHash     String
+  /// Lead created or updated by this event (so a provider retry returns the same lead).
+  leadId          String?
+  processedAt     DateTime?
+  error           String?
+  receivedAt      DateTime     @default(now())
+
+  @@unique([integrationId, externalEventId])
+  @@index([organizationId, receivedAt])
+  @@map("inbound_events")
+}
+
+// ────────────────────────────── Leads ──────────────────────────────
+
+model Lead {
+  id                  String        @id @default(cuid())
+  organizationId      String
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                String
+  email               String?
+  emailNormalized     String?
+  phone               String?
+  phoneE164           String?
+  company             String?
+  subject             String?
+  inquiry             String?
+  sourceId            String?
+  source              LeadSource?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceType          SourceType
+  sourceMetadata      Json          @default("{}")
+  status              LeadStatus    @default(NEW)
+  priority            LeadPriority  @default(NORMAL)
+  assignedMemberId    String?
+  assignedMember      OrganizationMember? @relation("LeadAssignee", fields: [assignedMemberId], references: [id], onDelete: SetNull)
+  duplicateOfId       String?
+  duplicateOf         Lead?         @relation("LeadDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates          Lead[]        @relation("LeadDuplicates")
+  customFields        Json          @default("{}")
+  lastContactAt       DateTime?
+  lastCustomerReplyAt DateTime?
+  nextFollowUpAt      DateTime?
+  /// Highest follow-up step that has become due in the current sequence (0 = none yet).
+  followUpStep        Int           @default(0)
+  convertedAt         DateTime?
+  lostAt              DateTime?
+  lostReason          String?
+  optedOutAt          DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  assignments   Assignment[]
+  activities    LeadActivity[]
+  conversations Conversation[]
+  messages      Message[]
+  followUpTasks FollowUpTask[]
+  consents      Consent[]
+  executions    AutomationExecution[]
+  notifications Notification[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, assignedMemberId])
+  @@index([organizationId, emailNormalized])
+  @@index([organizationId, phoneE164])
+  @@index([organizationId, nextFollowUpAt])
+  @@map("leads")
+}
+
+model Assignment {
+  id               String              @id @default(cuid())
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId           String
+  lead             Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  memberId         String?
+  member           OrganizationMember? @relation("AssignmentMember", fields: [memberId], references: [id], onDelete: SetNull)
+  previousMemberId String?
+  previousMember   OrganizationMember? @relation("AssignmentPreviousMember", fields: [previousMemberId], references: [id], onDelete: SetNull)
+  method           AssignmentMethod
+  actorUserId      String?
+  reason           String?
+  createdAt        DateTime            @default(now())
+
+  @@index([organizationId, leadId])
+  @@map("assignments")
+}
+
+/// One row per organization; row-locked during round-robin (ADR-005).
+model AssignmentCursor {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lastMemberId   String?
+  updatedAt      DateTime     @updatedAt
+
+  @@map("assignment_cursors")
+}
+
+model LeadActivity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type           ActivityType
+  actorType      ActorType
+  actorUserId    String?
+  payload        Json         @default("{}")
+  occurredAt     DateTime     @default(now())
+
+  @@index([organizationId, leadId, occurredAt])
+  @@map("lead_activities")
+}
+
+// ──────────────────────────── Messaging ────────────────────────────
+
+model Conversation {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId           String
+  lead             Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel          Channel
+  externalThreadId String?
+  /// WhatsApp customer-service window end (24h after last inbound message).
+  windowExpiresAt  DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  messages Message[]
+
+  @@unique([leadId, channel])
+  @@index([organizationId, externalThreadId])
+  @@map("conversations")
+}
+
+model Message {
+  id                String           @id @default(cuid())
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversationId    String?
+  conversation      Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  leadId            String
+  lead              Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction         MessageDirection
+  channel           Channel
+  templateId        String?
+  template          MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  followUpTaskId    String?
+  /// acknowledgement | follow_up | manual | fallback
+  purpose           String           @default("manual")
+  integrationId     String?
+  /// temporary_exhausted | permanent | delivery_unknown | policy — why a message FAILED or was CANCELLED.
+  failureKind       String?
+  subject           String?
+  body              String
+  toAddress         String?
+  fromAddress       String?
+  status            MessageStatus
+  /// Unique key that makes sending idempotent (ADR-007).
+  idempotencyKey    String?          @unique
+  providerMessageId String?
+  sentByUserId      String?
+  attempts          Int              @default(0)
+  lastError         String?
+  errorRetryable    Boolean?
+  scheduledFor      DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([organizationId, leadId, createdAt])
+  @@index([organizationId, status])
+  @@index([providerMessageId])
+  @@index([status, scheduledFor])
+  @@map("messages")
+}
+
+model MessageTemplate {
+  id                   String           @id @default(cuid())
+  organizationId       String
+  organization         Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// ACKNOWLEDGEMENT, FOLLOW_UP_1..n or a custom key.
+  key                  String
+  name                 String
+  channel              Channel
+  subject              String?
+  body                 String
+  approval             TemplateApproval @default(DRAFT)
+  approvedById         String?
+  approvedAt           DateTime?
+  /// Approved WhatsApp template name + language registered with Meta.
+  providerTemplateName String?
+  providerLanguage     String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  messages Message[]
+
+  @@unique([organizationId, key, channel])
+  @@map("message_templates")
+}
+
+model Consent {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel        Channel
+  status         ConsentStatus
+  source         String
+  recordedAt     DateTime      @default(now())
+
+  @@unique([leadId, channel])
+  @@map("consents")
+}
+
+// ─────────────────────────── Follow-ups ───────────────────────────
+
+model FollowUpRule {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stepIndex      Int
+  name           String
+  delayMinutes   Int
+  channels       Channel[]
+  templateKey    String
+  /// When true a reminder task is also created for the assigned employee.
+  remindEmployee Boolean      @default(true)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tasks FollowUpTask[]
+
+  @@unique([organizationId, stepIndex])
+  @@map("follow_up_rules")
+}
+
+model FollowUpTask {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ruleId         String?
+  rule           FollowUpRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  /// Identifies one run of the sequence; a recalculation starts a new run.
+  sequenceRunId  String
+  stepIndex      Int
+  kind           FollowUpKind
+  status         FollowUpStatus      @default(SCHEDULED)
+  dueAt          DateTime
+  title          String?
+  statusReason   String?
+  note           String?
+  completedAt    DateTime?
+  /// Set when the assignee was told the reminder is overdue (sent once).
+  overdueNotifiedAt DateTime?
+  completedById  String?
+  completedBy    OrganizationMember? @relation("FollowUpCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([leadId, sequenceRunId, stepIndex, kind])
+  @@index([organizationId, status, dueAt])
+  @@index([status, dueAt])
+  @@index([organizationId, leadId, status])
+  @@map("follow_up_tasks")
+}
+
+// ─────────────────────────── Automation ───────────────────────────
+
+model AutomationConfig {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  automationKey  String
+  status         AutomationStatus @default(DRAFT)
+  settings       Json             @default("{}")
+  setupStep      Int              @default(0)
+  activatedAt    DateTime?
+  activatedById  String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, automationKey])
+  @@map("automation_configs")
+}
+
+model AutomationExecution {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  automationKey  String
+  eventType      String
+  status         ExecutionStatus
+  leadId         String?
+  lead           Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  messageId      String?
+  followUpTaskId String?
+  jobId          String?
+  input          Json            @default("{}")
+  output         Json            @default("{}")
+  error          String?
+  retryable      Boolean         @default(false)
+  attempt        Int             @default(1)
+  createdAt      DateTime        @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("automation_executions")
+}
+
+model Notification {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type           String
+  title          String
+  body           String?
+  leadId         String?
+  lead           Lead?              @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  readAt         DateTime?
+  /// Email copy requested by the member's preferences; sent by the worker.
+  emailPending   Boolean            @default(false)
+  emailSentAt    DateTime?
+  emailError     String?
+  createdAt      DateTime           @default(now())
+
+  @@index([organizationId, memberId, readAt])
+  @@index([emailPending])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorUserId    String?
+  actor          User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action         String
+  targetType     String?
+  targetId       String?
+  ip             String?
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}

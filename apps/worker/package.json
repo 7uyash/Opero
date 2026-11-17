@@ -1,0 +1,23 @@
+{
+  "name": "@lfm/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lfm/core": "workspace:*",
+    "@lfm/db": "workspace:*",
+    "@lfm/queue": "workspace:*",
+    "bullmq": "^5.81.5",
+    "ioredis": "^5.11.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "vitest": "^4.1.12"
+  }
+}

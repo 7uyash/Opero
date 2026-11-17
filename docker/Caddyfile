@@ -1,0 +1,13 @@
+# HTTPS reverse proxy for the web app. Caddy obtains and renews the certificate for {$DOMAIN}.
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	# Large enough for form submissions, small enough to stop abuse.
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy web:3000
+}

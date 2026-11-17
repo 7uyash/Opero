@@ -1,0 +1,29 @@
+{
+  "name": "@lfm/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lfm/db": "workspace:*",
+    "@lfm/shared": "workspace:*",
+    "bcryptjs": "^3.0.2",
+    "libphonenumber-js": "^1.13.16",
+    "luxon": "^3.7.2",
+    "nodemailer": "^7.0.13",
+    "pino": "^9.7.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.6",
+    "@types/nodemailer": "^7.0.12"
+  }
+}

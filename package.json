@@ -1,0 +1,38 @@
+{
+  "name": "lead-followup-manager",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source Lead & Follow-up Manager — part of the Business Automation Platform",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @lfm/web dev",
+    "dev:worker": "pnpm --filter @lfm/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run -c vitest.e2e.config.mts",
+    "test:browser": "playwright test",
+    "verify": "pnpm typecheck && tsc -p e2e && pnpm test",
+    "verify:all": "pnpm verify && pnpm test:e2e && pnpm test:browser",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @lfm/db generate",
+    "db:migrate": "pnpm --filter @lfm/db migrate:dev",
+    "db:deploy": "pnpm --filter @lfm/db migrate:deploy",
+    "db:seed": "pnpm --filter @lfm/db seed",
+    "db:studio": "pnpm --filter @lfm/db studio"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.10.0",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

@@ -1,0 +1,104 @@
+# Production stack. Usage (see docs/DEPLOYMENT.md):
+#
+#   cp .env.production.example .env.production   # fill it in
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#   # with automatic HTTPS (Caddy + Let's Encrypt) for $DOMAIN:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production --profile https up -d --build
+#
+# Postgres and Redis are not published to the host. The web app listens on 127.0.0.1 only,
+# so it is reachable from the internet only through a reverse proxy (Caddy below, or your own).
+name: lead-followup-manager
+
+x-app: &app
+  env_file: .env.production
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://lfm:${LFM_DB_PASSWORD:?Set LFM_DB_PASSWORD in .env.production}@postgres:5432/lfm?schema=public
+    REDIS_URL: redis://redis:6379
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lfm
+      POSTGRES_PASSWORD: ${LFM_DB_PASSWORD:?Set LFM_DB_PASSWORD in .env.production}
+      POSTGRES_DB: lfm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lfm -d lfm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Queues must never be evicted; AOF keeps jobs across restarts (the database is still the source of truth).
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Applies pending database migrations, then exits. Web and worker wait for it.
+  migrate:
+    <<: *app
+    image: lead-followup-manager/worker:${APP_VERSION:-latest}
+    build: { context: ., target: worker }
+    working_dir: /app/packages/db
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    <<: *app
+    image: lead-followup-manager/web:${APP_VERSION:-latest}
+    build: { context: ., target: web }
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    <<: *app
+    image: lead-followup-manager/worker:${APP_VERSION:-latest}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 60s
+
+  # Optional: HTTPS with automatic Let's Encrypt certificates. Needs DOMAIN pointing at this server
+  # and ports 80/443 open.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
